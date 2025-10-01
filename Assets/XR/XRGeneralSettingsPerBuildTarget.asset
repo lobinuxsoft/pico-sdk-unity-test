@@ -16,7 +16,7 @@ MonoBehaviour:
   m_AutomaticLoading: 0
   m_AutomaticRunning: 0
   m_Loaders:
-  - {fileID: 11400000, guid: efff32b0eb3c1ea43ab2fda702cec631, type: 2}
+  - {fileID: 11400000, guid: 46593907c2fbc3b4297a2f65fe219699, type: 2}
 --- !u!114 &-2232227962525800623
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -30,7 +30,7 @@ MonoBehaviour:
   m_Name: Android Settings
   m_EditorClassIdentifier: 
   m_LoaderManagerInstance: {fileID: -3840015204224170826}
-  m_InitManagerOnStart: 0
+  m_InitManagerOnStart: 1
 --- !u!114 &-802989661063571687
 MonoBehaviour:
   m_ObjectHideFlags: 0

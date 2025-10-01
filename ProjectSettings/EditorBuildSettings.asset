@@ -9,5 +9,6 @@ EditorBuildSettings:
     path: Assets/Scenes/PICOSampleScene.unity
     guid: 559218298e186bd4da5a2090394288d8
   m_configObjects:
+    Unity.XR.Oculus.Settings: {fileID: 11400000, guid: b57d658dfff76a9488e1be916508eea3, type: 2}
     Unity.XR.PXR.Settings: {fileID: 11400000, guid: 428493a5f98cc2d429c72427533bc48a, type: 2}
     com.unity.xr.management.loader_settings: {fileID: 11400000, guid: 463f1fbe2a8d0f14197cac4fe87a7988, type: 2}

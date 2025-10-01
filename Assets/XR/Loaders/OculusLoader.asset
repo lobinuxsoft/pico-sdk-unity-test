@@ -9,11 +9,6 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d84923cab4d03452a8a3b80e3386b9b4, type: 3}
-  m_Name: PXR_PicoDebuggerSO
+  m_Script: {fileID: 11500000, guid: 03bc68f14d65e7747a59d5ff74bd199b, type: 3}
+  m_Name: OculusLoader
   m_EditorClassIdentifier: 
-  isOpen: 0
-  debuggerLauncherButton: 1
-  startPosition: 0
-  maxInfoCount: 0
-  rulerClearButton: 1

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 
@@ -23,16 +24,7 @@ public class PackageProfileEditor : Editor
                 var folder = EditorUtility.OpenFolderPanel("Seleccionar carpeta del package (contiene package.json)", "", "");
                 if (!string.IsNullOrEmpty(folder))
                 {
-                    var normalized = PackageUtils.ToFileUrl(folder);
-
-                    var list = profile.packagesToAdd != null ? new System.Collections.Generic.List<string>(profile.packagesToAdd) : new System.Collections.Generic.List<string>();
-                    insertIndex = Mathf.Clamp(insertIndex, 0, list.Count);
-                    list.Insert(insertIndex, normalized);
-                    profile.packagesToAdd = list.ToArray();
-
-                    EditorUtility.SetDirty(profile);
-                    AssetDatabase.SaveAssets();
-                    Debug.Log($"[PackageProfile] Insertado package local en packagesToAdd[{insertIndex}]: {normalized}");
+                    InsertLocalPackage(profile, PackageUtils.ToFileUrl(folder), ref insertIndex);
                 }
             }
         }
@@ -40,18 +32,25 @@ public class PackageProfileEditor : Editor
         EditorGUILayout.Space();
         using (new EditorGUILayout.HorizontalScope())
         {
-            if (GUILayout.Button("Encolar: Aplicar y Remover"))
-            {
-                PackageProfileApplier.Apply(profile); // encola
-            }
-            if (GUILayout.Button("Encolar: Solo Aplicar"))
-            {
-                PackageProfileApplier.ApplyAddsOnly(profile); // encola
-            }
+            if (GUILayout.Button("Encolar: Aplicar y Remover")) PackageProfileApplier.Apply(profile);
+            if (GUILayout.Button("Encolar: Solo Aplicar")) PackageProfileApplier.ApplyAddsOnly(profile);
         }
-        if (GUILayout.Button("Final Apply (resolver cola)"))
+
+        if (GUILayout.Button("Final Apply (resolver cola única)"))
         {
-            PackageProfileApplier.FinalApply(); // ejecuta la cola
+            PackageProfileApplier.FinalApply();
         }
+    }
+
+    static void InsertLocalPackage(PackageProfile profile, string normalizedFileUrl, ref int index)
+    {
+        var list = new List<string>(profile.packagesToAdd ?? System.Array.Empty<string>());
+        index = Mathf.Clamp(index, 0, list.Count);
+        list.Insert(index, normalizedFileUrl);
+        profile.packagesToAdd = list.ToArray();
+
+        EditorUtility.SetDirty(profile);
+        AssetDatabase.SaveAssets();
+        Debug.Log($"[PackageProfile] Insertado package local en packagesToAdd[{index}]: {normalizedFileUrl}");
     }
 }

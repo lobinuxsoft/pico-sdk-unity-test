@@ -15,6 +15,7 @@ public static class PackageUtils
             while (rest.StartsWith("/")) rest = rest.Substring(1);
             return "file:" + rest;
         }
+
         var looksLikePath = s.Contains("\\") || s.Contains("/") || (s.Length > 1 && s[1] == ':');
         return looksLikePath ? $"file:{s.Replace('\\', '/')}" : s;
     }
@@ -33,38 +34,31 @@ public static class PackageUtils
     {
         try
         {
-            if (!fileUri.StartsWith("file:", StringComparison.OrdinalIgnoreCase)) return null;
+            if (string.IsNullOrWhiteSpace(fileUri) || !fileUri.StartsWith("file:", StringComparison.OrdinalIgnoreCase)) return null;
             var folder = fileUri.Substring("file:".Length);
             var pkgJson = Path.Combine(folder, "package.json");
             if (!File.Exists(pkgJson)) return null;
             var json = File.ReadAllText(pkgJson);
             return ExtractJsonString(json, "name");
         }
-        catch { return null; }
-    }
-
-    static string ExtractJsonString(string json, string key)
-    {
-        var i = json.IndexOf($"\"{key}\"", StringComparison.Ordinal);
-        if (i < 0) return null;
-        i = json.IndexOf(':', i);
-        if (i < 0) return null;
-        i = json.IndexOf('"', i);
-        if (i < 0) return null;
-        var j = json.IndexOf('"', i + 1);
-        if (j < 0) return null;
-        return json.Substring(i + 1, j - i - 1);
+        catch
+        {
+            return null;
+        }
     }
 
     public static string ToFileUrl(string absoluteOrRelativePath)
     {
         var p = (absoluteOrRelativePath ?? string.Empty).Replace('\\', '/').Trim().Trim('"');
+        if (p.Length == 0) return string.Empty;
+
         if (p.StartsWith("file:", StringComparison.OrdinalIgnoreCase))
         {
             var rest = p.Substring("file:".Length).Replace('\\', '/');
             while (rest.StartsWith("/")) rest = rest.Substring(1);
             return "file:" + rest;
         }
+
         if (Path.IsPathRooted(p)) return $"file:{p}";
         return $"file:{p}";
     }
@@ -74,7 +68,13 @@ public static class PackageUtils
         var dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         try
         {
-            var manifestPath = Path.Combine(Directory.GetParent(Application.dataPath)!.FullName, "Packages", "manifest.json");
+            var dataPath = Application.dataPath;
+            if (string.IsNullOrEmpty(dataPath)) return dict;
+
+            var projectRoot = Directory.GetParent(dataPath);
+            if (projectRoot == null) return dict;
+
+            var manifestPath = Path.Combine(projectRoot.FullName, "Packages", "manifest.json");
             if (!File.Exists(manifestPath)) return dict;
 
             var json = File.ReadAllText(manifestPath);
@@ -83,12 +83,18 @@ public static class PackageUtils
 
             foreach (var kv in ParseSimpleStringDict(depsObj)) dict[kv.Key] = kv.Value;
         }
-        catch (Exception e) { Debug.LogWarning($"[Packages] No se pudo leer manifest.json: {e.Message}"); }
+        catch (Exception e)
+        {
+            Debug.LogWarning($"[Packages] No se pudo leer manifest.json: {e.Message}");
+        }
+
         return dict;
     }
 
     public static string ExtractJsonObject(string json, string key)
     {
+        if (string.IsNullOrEmpty(json) || string.IsNullOrEmpty(key)) return null;
+
         var i = json.IndexOf($"\"{key}\"", StringComparison.Ordinal);
         if (i < 0) return null;
         i = json.IndexOf('{', i);
@@ -97,35 +103,45 @@ public static class PackageUtils
         int depth = 0;
         for (int j = i; j < json.Length; j++)
         {
-            if (json[j] == '{') depth++;
-            else if (json[j] == '}')
+            var c = json[j];
+            if (c == '{') depth++;
+            else if (c == '}')
             {
                 depth--;
                 if (depth == 0) return json.Substring(i, j - i + 1);
             }
         }
+
         return null;
     }
 
     public static IEnumerable<KeyValuePair<string, string>> ParseSimpleStringDict(string jsonObject)
     {
         var result = new List<KeyValuePair<string, string>>();
+        if (string.IsNullOrEmpty(jsonObject)) return result;
+
         int i = 0;
         while (i < jsonObject.Length)
         {
-            var q1 = jsonObject.IndexOf('"', i); if (q1 < 0) break;
-            var q2 = jsonObject.IndexOf('"', q1 + 1); if (q2 < 0) break;
+            var q1 = jsonObject.IndexOf('"', i);
+            if (q1 < 0) break;
+            var q2 = jsonObject.IndexOf('"', q1 + 1);
+            if (q2 < 0) break;
             var key = jsonObject.Substring(q1 + 1, q2 - q1 - 1);
 
-            var colon = jsonObject.IndexOf(':', q2); if (colon < 0) break;
-            int vStart = colon + 1; while (vStart < jsonObject.Length && char.IsWhiteSpace(jsonObject[vStart])) vStart++;
+            var colon = jsonObject.IndexOf(':', q2);
+            if (colon < 0) break;
+            int vStart = colon + 1;
+            while (vStart < jsonObject.Length && char.IsWhiteSpace(jsonObject[vStart])) vStart++;
 
             string value;
             if (vStart < jsonObject.Length && jsonObject[vStart] == '"')
             {
-                var vq2 = jsonObject.IndexOf('"', vStart + 1); if (vq2 < 0) break;
+                var vq2 = jsonObject.IndexOf('"', vStart + 1);
+                if (vq2 < 0) break;
                 value = jsonObject.Substring(vStart + 1, vq2 - vStart - 1);
-                i = jsonObject.IndexOf(',', vq2); i = i < 0 ? jsonObject.Length : i + 1;
+                i = jsonObject.IndexOf(',', vq2);
+                i = i < 0 ? jsonObject.Length : i + 1;
             }
             else
             {
@@ -137,6 +153,22 @@ public static class PackageUtils
 
             if (!string.IsNullOrEmpty(key)) result.Add(new KeyValuePair<string, string>(key, value));
         }
+
         return result;
+    }
+
+    static string ExtractJsonString(string json, string key)
+    {
+        if (string.IsNullOrEmpty(json) || string.IsNullOrEmpty(key)) return null;
+
+        var i = json.IndexOf($"\"{key}\"", StringComparison.Ordinal);
+        if (i < 0) return null;
+        i = json.IndexOf(':', i);
+        if (i < 0) return null;
+        i = json.IndexOf('"', i);
+        if (i < 0) return null;
+        var j = json.IndexOf('"', i + 1);
+        if (j < 0) return null;
+        return json.Substring(i + 1, j - i - 1);
     }
 }

@@ -19,3 +19,4 @@ MonoBehaviour:
   packagesToRemove:
   - com.unity.xr.oculus
   - com.meta.xr.sdk.core
+  - com.meta.xr.sdk.platform

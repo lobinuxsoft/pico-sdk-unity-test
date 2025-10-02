@@ -23,10 +23,8 @@ public class PackageProfileEditor : Editor
                 var folder = EditorUtility.OpenFolderPanel("Seleccionar carpeta del package (contiene package.json)", "", "");
                 if (!string.IsNullOrEmpty(folder))
                 {
-                    // Normalizar a URL file: sin triple slash
-                    var normalized = ToFileUrl(folder);
+                    var normalized = PackageUtils.ToFileUrl(folder);
 
-                    // Insertar en packagesToAdd
                     var list = profile.packagesToAdd != null ? new System.Collections.Generic.List<string>(profile.packagesToAdd) : new System.Collections.Generic.List<string>();
                     insertIndex = Mathf.Clamp(insertIndex, 0, list.Count);
                     list.Insert(insertIndex, normalized);
@@ -40,30 +38,20 @@ public class PackageProfileEditor : Editor
         }
 
         EditorGUILayout.Space();
-        if (GUILayout.Button("Aplicar este perfil (Add/Remove Packages)"))
+        using (new EditorGUILayout.HorizontalScope())
         {
-            PackageProfileApplier.Apply(profile);
+            if (GUILayout.Button("Encolar: Aplicar y Remover"))
+            {
+                PackageProfileApplier.Apply(profile); // encola
+            }
+            if (GUILayout.Button("Encolar: Solo Aplicar"))
+            {
+                PackageProfileApplier.ApplyAddsOnly(profile); // encola
+            }
         }
-    }
-
-    // Siempre devuelve formato file:C:/... (sin file:///)
-    static string ToFileUrl(string absolutePath)
-    {
-        var p = absolutePath.Replace('\\', '/').Trim().Trim('"');
-
-        // Si ya viene como file:, normalizar y quitar slashes extra tras el esquema
-        if (p.StartsWith("file:", System.StringComparison.OrdinalIgnoreCase))
+        if (GUILayout.Button("Final Apply (resolver cola)"))
         {
-            var rest = p.Substring("file:".Length).Replace('\\', '/');
-            while (rest.StartsWith("/")) rest = rest.Substring(1); // elimina /// -> /
-            return "file:" + rest;
+            PackageProfileApplier.FinalApply(); // ejecuta la cola
         }
-
-        // Ruta absoluta -> file:C:/...
-        if (System.IO.Path.IsPathRooted(p))
-            return $"file:{p}";
-
-        // Relativa -> file:relative/path
-        return $"file:{p}";
     }
 }

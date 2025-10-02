@@ -8,15 +8,31 @@ using UnityEngine;
 public class PackageProfilesWindow : EditorWindow
 {
     Vector2 _scrollLeft, _scrollRight;
-    Dictionary<string, string> _currentPackages; // name -> versionOrPath
+    Dictionary<string, string> _currentPackages; // name -> versionOrPath (desde manifest)
     PackageProfile[] _profiles;
     float _leftWidth = 380f;
     bool _dragging;
+    bool _batchRunning;
 
     [MenuItem("Tools/Packages/Profiles")]
     public static void Open() => GetWindow<PackageProfilesWindow>("Package Profiles");
 
-    void OnEnable() { RefreshProfiles(); RefreshCurrentPackages(); }
+    void OnEnable()
+    {
+        RefreshProfiles(); RefreshCurrentPackages();
+        PackageProfileApplier.OnBatchStarted += HandleBatchStarted;
+        PackageProfileApplier.OnBatchCompleted += HandleBatchCompleted;
+    }
+
+    void OnDisable()
+    {
+        PackageProfileApplier.OnBatchStarted -= HandleBatchStarted;
+        PackageProfileApplier.OnBatchCompleted -= HandleBatchCompleted;
+    }
+
+    void HandleBatchStarted() { _batchRunning = true; Repaint(); }
+    void HandleBatchCompleted() { _batchRunning = false; RefreshCurrentPackages(); Repaint(); }
+
     void OnFocus() { RefreshProfiles(); RefreshCurrentPackages(); }
 
     void OnGUI()
@@ -56,7 +72,7 @@ public class PackageProfilesWindow : EditorWindow
             .ToArray();
     }
 
-    void RefreshCurrentPackages() => _currentPackages = ReadManifestPackages();
+    void RefreshCurrentPackages() => _currentPackages = PackageUtils.ReadManifestPackages();
 
     void DrawProfilesPanel()
     {
@@ -75,19 +91,24 @@ public class PackageProfilesWindow : EditorWindow
                 foreach (var p in _profiles)
                 {
                     var isApplied = IsProfileApplied(p, _currentPackages);
-                    using (new EditorGUI.DisabledScope(isApplied))
+                    using (new EditorGUI.DisabledScope(_batchRunning))
                     using (new EditorGUILayout.VerticalScope("box"))
                     {
                         using (new EditorGUILayout.HorizontalScope())
                         {
                             EditorGUILayout.LabelField(p.profileName, EditorStyles.boldLabel);
                             GUILayout.FlexibleSpace();
-                            var btnText = isApplied ? "Aplicado" : "Aplicar";
-                            if (GUILayout.Button(btnText, GUILayout.Width(90))) ApplyFromWindow(p);
+                            if (GUILayout.Button("Encolar (Add+Remove)", GUILayout.Width(150))) PackageProfileApplier.Apply(p);
+                            if (GUILayout.Button("Encolar (Solo Add)", GUILayout.Width(130))) PackageProfileApplier.ApplyAddsOnly(p);
                         }
 
                         DrawList("Añadir:", p.packagesToAdd);
                         DrawList("Quitar:", p.packagesToRemove);
+
+                        using (new EditorGUILayout.HorizontalScope())
+                        {
+                            GUILayout.Label(isApplied ? "Estado: Aplicado" : "Estado: No aplicado", EditorStyles.miniLabel);
+                        }
                     }
                     GUILayout.Space(4);
                 }
@@ -95,8 +116,28 @@ public class PackageProfilesWindow : EditorWindow
             EditorGUILayout.EndScrollView();
         }
 
-        GUILayout.Space(4);
-        if (GUILayout.Button("Refrescar perfiles")) RefreshProfiles();
+        GUILayout.Space(6);
+        using (new EditorGUILayout.HorizontalScope())
+        {
+            using (new EditorGUI.DisabledScope(_batchRunning))
+            {
+                if (GUILayout.Button("Refrescar perfiles")) RefreshProfiles();
+                if (GUILayout.Button("Encolar SOLO adds en TODOS"))
+                {
+                    foreach (var p in _profiles ?? Array.Empty<PackageProfile>())
+                        PackageProfileApplier.ApplyAddsOnly(p);
+                    Debug.Log("[Packages] Encolados adds de todos los perfiles. Ejecuta 'Final Apply (resolver cola)'.");
+                }
+            }
+
+            using (new EditorGUI.DisabledScope(!_batchRunning && PackageProfileApplier.IsRunning))
+            {
+                if (GUILayout.Button("Final Apply (resolver cola)"))
+                {
+                    PackageProfileApplier.FinalApply();
+                }
+            }
+        }
     }
 
     void DrawList(string title, string[] items)
@@ -146,78 +187,6 @@ public class PackageProfilesWindow : EditorWindow
         }
     }
 
-    void ApplyFromWindow(PackageProfile profile)
-    {
-        var removes = (profile.packagesToRemove ?? Array.Empty<string>())
-            .Where(s => !string.IsNullOrWhiteSpace(s))
-            .Select(s => s.Split('@')[0].Trim())
-            .Where(name => _currentPackages != null && _currentPackages.ContainsKey(name))
-            .ToList();
-
-        var adds = (profile.packagesToAdd ?? Array.Empty<string>())
-            .Where(s => !string.IsNullOrWhiteSpace(s))
-            .Select(NormalizeAddId) // solo normalización de entrada
-            .ToList();
-
-        ExecuteRemovesThenAdds(removes, adds);
-    }
-
-    static string NormalizeAddId(string s)
-    {
-        s = s.Trim().Trim('"');
-        if (s.StartsWith("file:", StringComparison.OrdinalIgnoreCase))
-        {
-            var rest = s.Substring("file:".Length).Replace('\\', '/');
-            while (rest.StartsWith("/")) rest = rest[1..];
-            return "file:" + rest;
-        }
-        var looksLikePath = s.Contains("\\") || s.Contains("/") || (s.Length > 1 && s[1] == ':');
-        return looksLikePath ? $"file:{s.Replace('\\', '/')}" : s;
-    }
-
-    void ExecuteRemovesThenAdds(List<string> removes, List<string> adds)
-    {
-        void RemoveNext()
-        {
-            if (removes.Count == 0) { RefreshCurrentPackages(); AddNext(); return; }
-            var name = removes[0]; removes.RemoveAt(0);
-
-            var req = UnityEditor.PackageManager.Client.Remove(name);
-            EditorApplication.update += Tick;
-            void Tick()
-            {
-                if (!req.IsCompleted) return;
-                EditorApplication.update -= Tick;
-                if (req.Status == UnityEditor.PackageManager.StatusCode.Failure)
-                    Debug.LogError($"[Packages] Remove error {name}: {req.Error?.message}");
-                RefreshCurrentPackages();
-                Repaint();
-                RemoveNext();
-            }
-        }
-
-        void AddNext()
-        {
-            if (adds.Count == 0) { RefreshCurrentPackages(); Repaint(); Debug.Log("[Packages] Cambios aplicados."); return; }
-            var id = adds[0]; adds.RemoveAt(0);
-
-            var req = UnityEditor.PackageManager.Client.Add(id);
-            EditorApplication.update += Tick;
-            void Tick()
-            {
-                if (!req.IsCompleted) return;
-                EditorApplication.update -= Tick;
-                if (req.Status == UnityEditor.PackageManager.StatusCode.Failure)
-                    Debug.LogError($"[Packages] Add error {id}: {req.Error?.message}");
-                RefreshCurrentPackages();
-                Repaint();
-                AddNext();
-            }
-        }
-
-        RemoveNext();
-    }
-
     static bool IsProfileApplied(PackageProfile profile, Dictionary<string, string> current)
     {
         if (current == null) return false;
@@ -225,130 +194,29 @@ public class PackageProfilesWindow : EditorWindow
         foreach (var entry in (profile.packagesToAdd ?? Array.Empty<string>()))
         {
             if (string.IsNullOrWhiteSpace(entry)) continue;
-            var req = ParseRequirement(entry);
-            if (!current.TryGetValue(req.name, out var installedValue)) return false;
-            if (!string.IsNullOrEmpty(req.exactValue) && !string.Equals(installedValue?.Trim(), req.exactValue.Trim(), StringComparison.OrdinalIgnoreCase)) return false;
+            var norm = PackageUtils.NormalizeAddId(entry);
+            var (name, exact) = PackageUtils.ParseRequirement(norm);
+            if (norm.StartsWith("file:", StringComparison.OrdinalIgnoreCase))
+            {
+                var guessed = PackageUtils.TryGetLocalPackageNameFromFolder(norm);
+                if (string.IsNullOrEmpty(guessed)) return false;
+                if (!current.TryGetValue(guessed, out var inst) || !string.Equals(inst?.Trim(), norm.Trim(), StringComparison.OrdinalIgnoreCase)) return false;
+            }
+            else
+            {
+                if (string.IsNullOrEmpty(name)) return false;
+                if (!current.TryGetValue(name, out var inst)) return false;
+                if (!string.IsNullOrEmpty(exact) && !string.Equals(inst?.Trim(), exact.Trim(), StringComparison.OrdinalIgnoreCase)) return false;
+            }
         }
 
         foreach (var entry in (profile.packagesToRemove ?? Array.Empty<string>()))
         {
             if (string.IsNullOrWhiteSpace(entry)) continue;
-            var req = ParseRequirement(entry);
-            if (current.ContainsKey(req.name)) return false;
+            var toRemove = entry.Split('@')[0].Trim();
+            if (current.ContainsKey(toRemove)) return false;
         }
 
         return true;
-    }
-
-    struct PackageReq { public string name; public string exactValue; }
-
-    static PackageReq ParseRequirement(string idOrPath)
-    {
-        idOrPath = idOrPath.Trim();
-        if (idOrPath.StartsWith("file:", StringComparison.OrdinalIgnoreCase))
-        {
-            var name = TryGetNameFromFilePackage(idOrPath) ?? new DirectoryInfo(idOrPath.Substring("file:".Length)).Name;
-            return new PackageReq { name = name, exactValue = idOrPath };
-        }
-        var at = idOrPath.IndexOf('@');
-        if (at > 0) return new PackageReq { name = idOrPath[..at], exactValue = idOrPath[(at + 1)..] };
-        return new PackageReq { name = idOrPath, exactValue = null };
-    }
-
-    static string TryGetNameFromFilePackage(string fileUri)
-    {
-        try
-        {
-            var folder = fileUri.Substring("file:".Length);
-            var pkgJson = Path.Combine(folder, "package.json");
-            if (!File.Exists(pkgJson)) return null;
-            var json = File.ReadAllText(pkgJson);
-            return ExtractJsonString(json, "name");
-        }
-        catch { return null; }
-    }
-
-    static Dictionary<string, string> ReadManifestPackages()
-    {
-        var dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        try
-        {
-            var manifestPath = Path.Combine(Directory.GetParent(Application.dataPath)!.FullName, "Packages", "manifest.json");
-            if (!File.Exists(manifestPath)) return dict;
-
-            var json = File.ReadAllText(manifestPath);
-            var depsObj = ExtractJsonObject(json, "dependencies");
-            if (string.IsNullOrEmpty(depsObj)) return dict;
-
-            foreach (var kv in ParseSimpleStringDict(depsObj)) dict[kv.Key] = kv.Value;
-        }
-        catch (Exception e) { Debug.LogWarning($"[Packages] No se pudo leer manifest.json: {e.Message}"); }
-        return dict;
-    }
-
-    static string ExtractJsonObject(string json, string key)
-    {
-        var i = json.IndexOf($"\"{key}\"", StringComparison.Ordinal);
-        if (i < 0) return null;
-        i = json.IndexOf('{', i);
-        if (i < 0) return null;
-
-        int depth = 0;
-        for (int j = i; j < json.Length; j++)
-        {
-            if (json[j] == '{') depth++;
-            else if (json[j] == '}')
-            {
-                depth--;
-                if (depth == 0) return json.Substring(i, j - i + 1);
-            }
-        }
-        return null;
-    }
-
-    static string ExtractJsonString(string json, string key)
-    {
-        var i = json.IndexOf($"\"{key}\"", StringComparison.Ordinal);
-        if (i < 0) return null;
-        i = json.IndexOf(':', i);
-        if (i < 0) return null;
-        i = json.IndexOf('"', i);
-        if (i < 0) return null;
-        var j = json.IndexOf('"', i + 1);
-        if (j < 0) return null;
-        return json.Substring(i + 1, j - i - 1);
-    }
-
-    static IEnumerable<KeyValuePair<string, string>> ParseSimpleStringDict(string jsonObject)
-    {
-        var result = new List<KeyValuePair<string, string>>();
-        int i = 0;
-        while (i < jsonObject.Length)
-        {
-            var q1 = jsonObject.IndexOf('"', i); if (q1 < 0) break;
-            var q2 = jsonObject.IndexOf('"', q1 + 1); if (q2 < 0) break;
-            var key = jsonObject.Substring(q1 + 1, q2 - q1 - 1);
-
-            var colon = jsonObject.IndexOf(':', q2); if (colon < 0) break;
-            int vStart = colon + 1; while (vStart < jsonObject.Length && char.IsWhiteSpace(jsonObject[vStart])) vStart++;
-
-            string value;
-            if (vStart < jsonObject.Length && jsonObject[vStart] == '"')
-            {
-                var vq2 = jsonObject.IndexOf('"', vStart + 1); if (vq2 < 0) break;
-                value = jsonObject.Substring(vStart + 1, vq2 - vStart - 1);
-                i = jsonObject.IndexOf(',', vq2); i = i < 0 ? jsonObject.Length : i + 1;
-            }
-            else
-            {
-                int vend = jsonObject.IndexOfAny(new[] { ',', '}' }, vStart);
-                if (vend < 0) vend = jsonObject.Length;
-                value = jsonObject.Substring(vStart, vend - vStart).Trim();
-                i = vend + 1;
-            }
-
-            if (!string.IsNullOrEmpty(key)) result.Add(new KeyValuePair<string, string>(key, value));
-        }
-        return result;
     }
 }

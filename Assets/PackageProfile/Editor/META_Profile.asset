@@ -15,7 +15,8 @@ MonoBehaviour:
   profileName: META
   packagesToAdd:
   - com.unity.xr.oculus@4.5.2
-  - com.meta.xr.sdk.core@77.0.0
   - com.unity.xr.interaction.toolkit@2.6.5
+  - com.meta.xr.sdk.core@77.0.0
+  - com.meta.xr.sdk.platform@77.0.0
   packagesToRemove:
   - com.unity.xr.picoxr

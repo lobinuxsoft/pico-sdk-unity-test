@@ -278,16 +278,6 @@
       },
       "url": "https://packages.unity.com"
     },
-    "com.unity.xr.picoxr": {
-      "version": "file:C:/Users/theda/AppData/Roaming/PICO_Developer_Center_Downloads/global/sdk_id_12/PICO%20Unity%20Integration%20SDK-3.3.0-20250917",
-      "depth": 0,
-      "source": "local",
-      "dependencies": {
-        "com.unity.xr.management": "4.0.0",
-        "com.unity.xr.interaction.toolkit": "2.0.0",
-        "com.unity.xr.core-utils": "2.3.0"
-      }
-    },
     "com.unity.modules.ai": {
       "version": "1.0.0",
       "depth": 0,

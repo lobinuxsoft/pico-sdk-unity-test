@@ -34,8 +34,41 @@ public class PackageProfilesWindow : EditorWindow
 
     void OnGUI()
     {
-        // Toolbar
+        // Cabecera
         EditorGUILayout.LabelField("Gestor de Perfiles de Paquetes", EditorStyles.boldLabel);
+        EditorGUILayout.Space(6);
+
+        // Paneles (perfiles izquierda, paquetes derecha)
+        using (new EditorGUILayout.HorizontalScope(GUILayout.ExpandHeight(true)))
+        {
+            using (new EditorGUILayout.VerticalScope(GUILayout.Width(Mathf.Max(260f, position.width * 0.5f))))
+            {
+                EditorGUILayout.LabelField("Perfiles disponibles", EditorStyles.boldLabel);
+                using (new EditorGUILayout.VerticalScope("box"))
+                {
+                    _scrollLeft = EditorGUILayout.BeginScrollView(_scrollLeft, GUILayout.ExpandHeight(true));
+                    DrawProfilesList();
+                    EditorGUILayout.EndScrollView();
+                }
+            }
+
+            GUILayout.Box(GUIContent.none, GUILayout.Width(2), GUILayout.ExpandHeight(true));
+
+            using (new EditorGUILayout.VerticalScope(GUILayout.ExpandWidth(true)))
+            {
+                EditorGUILayout.LabelField("Paquetes actuales (manifest.json)", EditorStyles.boldLabel);
+                using (new EditorGUILayout.VerticalScope("box"))
+                {
+                    _scrollRight = EditorGUILayout.BeginScrollView(_scrollRight, GUILayout.ExpandHeight(true));
+                    DrawCurrentPackages();
+                    EditorGUILayout.EndScrollView();
+                }
+            }
+        }
+
+        EditorGUILayout.Space(6);
+
+        // MOVER botones ABAJO (debajo de las listas)
         using (new EditorGUILayout.HorizontalScope())
         {
             using (new EditorGUI.DisabledScope(_batchRunning))
@@ -53,53 +86,14 @@ public class PackageProfilesWindow : EditorWindow
             }
         }
 
-        EditorGUILayout.Space(6);
-
-        // Dos paneles con scroll que se adaptan al tamaño
-        using (new EditorGUILayout.HorizontalScope(GUILayout.ExpandHeight(true)))
-        {
-            // IZQUIERDA: Perfiles
-            using (new EditorGUILayout.VerticalScope(GUILayout.Width(Mathf.Max(260f, position.width * 0.5f))))
-            {
-                EditorGUILayout.LabelField("Perfiles disponibles", EditorStyles.boldLabel);
-                using (new EditorGUILayout.VerticalScope("box"))
-                {
-                    _scrollLeft = EditorGUILayout.BeginScrollView(_scrollLeft, GUILayout.ExpandHeight(true));
-                    DrawProfilesList();
-                    EditorGUILayout.EndScrollView();
-                }
-            }
-
-            // Separador
-            GUILayout.Box(GUIContent.none, GUILayout.Width(2), GUILayout.ExpandHeight(true));
-
-            // DERECHA: Paquetes actuales
-            using (new EditorGUILayout.VerticalScope(GUILayout.ExpandWidth(true)))
-            {
-                EditorGUILayout.LabelField("Paquetes actuales (manifest.json)", EditorStyles.boldLabel);
-                using (new EditorGUILayout.VerticalScope("box"))
-                {
-                    _scrollRight = EditorGUILayout.BeginScrollView(_scrollRight, GUILayout.ExpandHeight(true));
-                    DrawCurrentPackages();
-                    EditorGUILayout.EndScrollView();
-                }
-            }
-        }
-
-        // Indicador de “en proceso” ocupando toda la ventana y bloqueando interacción
+        // Overlay de proceso bloqueando toda la ventana
         if (PackageProfileApplier.IsRunning)
         {
             var fullRect = new Rect(0, 0, position.width, position.height);
-
-            // Capa oscura
             EditorGUI.DrawRect(fullRect, new Color(0f, 0f, 0f, 0.45f));
 
-            // Caja central con mensaje
             var boxSize = new Vector2(Mathf.Min(360f, position.width * 0.8f), 90f);
-            var boxRect = new Rect(
-                (position.width - boxSize.x) * 0.5f,
-                (position.height - boxSize.y) * 0.5f,
-                boxSize.x, boxSize.y);
+            var boxRect = new Rect((position.width - boxSize.x) * 0.5f, (position.height - boxSize.y) * 0.5f, boxSize.x, boxSize.y);
 
             GUILayout.BeginArea(boxRect, GUI.skin.window);
             GUILayout.Label("Procesando paquetes...", EditorStyles.boldLabel);
@@ -107,9 +101,8 @@ public class PackageProfilesWindow : EditorWindow
             EditorGUI.ProgressBar(progressRect, 0.5f, "");
             GUILayout.EndArea();
 
-            // Bloquear completamente la interacción de la ventana
             EditorGUIUtility.AddCursorRect(fullRect, MouseCursor.Link);
-            GUI.enabled = false; // deshabilitar todos los controles debajo del overlay
+            GUI.enabled = false;
         }
         else
         {
@@ -130,21 +123,22 @@ public class PackageProfilesWindow : EditorWindow
             bool isApplied = IsProfileApplied(p, _currentPackages);
             using (new EditorGUILayout.VerticalScope("box"))
             {
-                using (new EditorGUILayout.HorizontalScope())
-                {
-                    var label = isApplied ? $"{p.profileName} (Aplicado)" : p.profileName;
-                    EditorGUILayout.LabelField(label, EditorStyles.boldLabel);
-                    GUILayout.FlexibleSpace();
+                // Nombre
+                var label = isApplied ? $"{p.profileName} (Aplicado)" : p.profileName;
+                EditorGUILayout.LabelField(label, EditorStyles.boldLabel);
 
-                    using (new EditorGUI.DisabledScope(_batchRunning || isApplied))
-                    {
-                        if (GUILayout.Button("Encolar (Add+Remove)", GUILayout.Width(150))) PackageProfileApplier.Apply(p);
-                        if (GUILayout.Button("Encolar (Solo Add)", GUILayout.Width(130))) PackageProfileApplier.ApplyAddsOnly(p);
-                    }
-                }
-
+                // Descripción
                 DrawList("Añadir:", p.packagesToAdd);
                 DrawList("Quitar:", p.packagesToRemove);
+
+                // Botones DEBAJO de la descripción
+                using (new EditorGUI.DisabledScope(_batchRunning || isApplied))
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    GUILayout.FlexibleSpace();
+                    if (GUILayout.Button("Encolar (Add+Remove)", GUILayout.Width(150))) PackageProfileApplier.Apply(p);
+                    if (GUILayout.Button("Encolar (Solo Add)", GUILayout.Width(130))) PackageProfileApplier.ApplyAddsOnly(p);
+                }
             }
             GUILayout.Space(4);
         }

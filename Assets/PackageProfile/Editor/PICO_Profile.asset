@@ -14,9 +14,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   profileName: PICO
   packagesToAdd:
-  - file:C:/Users/theda/AppData/Roaming/PICO_Developer_Center_Downloads/global/sdk_id_12/PICO%20Unity%20Integration%20SDK-3.3.0-20250917
   - com.unity.xr.interaction.toolkit@2.6.5
+  - com.unity.xr.openxr@1.14.3
+  - com.unity.xr.arfoundation@5.2.0
+  - file:C:/Users/Mati/Documents/Repos/pico-sdk-unity-test/ThirdPartyPackages/UnityOpenXRPicoIntegrationSDK-1.4.0
   packagesToRemove:
-  - com.unity.xr.oculus
+  - com.unity.xr.meta-openxr
   - com.meta.xr.sdk.core
   - com.meta.xr.sdk.platform

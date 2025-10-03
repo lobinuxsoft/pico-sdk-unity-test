@@ -14,9 +14,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   profileName: META
   packagesToAdd:
-  - com.unity.xr.oculus@4.5.2
   - com.unity.xr.interaction.toolkit@2.6.5
+  - com.unity.xr.arfoundation@5.2.0
+  - com.unity.xr.openxr@1.14.3
+  - com.unity.xr.meta-openxr@1.0.4
   - com.meta.xr.sdk.core@77.0.0
   - com.meta.xr.sdk.platform@77.0.0
   packagesToRemove:
-  - com.unity.xr.picoxr
+  - com.unity.xr.openxr.picoxr

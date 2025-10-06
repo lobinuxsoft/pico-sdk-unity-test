@@ -1,5 +1,21 @@
 {
   "dependencies": {
+    "com.meta.xr.sdk.core": {
+      "version": "77.0.0",
+      "depth": 0,
+      "source": "registry",
+      "dependencies": {},
+      "url": "https://packages.unity.com"
+    },
+    "com.meta.xr.sdk.platform": {
+      "version": "77.0.0",
+      "depth": 0,
+      "source": "registry",
+      "dependencies": {
+        "com.unity.ugui": "1.0.0"
+      },
+      "url": "https://packages.unity.com"
+    },
     "com.unity.2d.sprite": {
       "version": "1.0.0",
       "depth": 0,
@@ -306,6 +322,16 @@
       },
       "url": "https://packages.unity.com"
     },
+    "com.unity.xr.meta-openxr": {
+      "version": "1.0.4",
+      "depth": 0,
+      "source": "registry",
+      "dependencies": {
+        "com.unity.xr.openxr": "1.7.0",
+        "com.unity.xr.arfoundation": "5.1.0"
+      },
+      "url": "https://packages.unity.com"
+    },
     "com.unity.xr.openxr": {
       "version": "1.14.3",
       "depth": 0,
@@ -317,15 +343,6 @@
         "com.unity.xr.legacyinputhelpers": "2.1.2"
       },
       "url": "https://packages.unity.com"
-    },
-    "com.unity.xr.openxr.picoxr": {
-      "version": "file:C:/Users/Mati/Documents/Repos/pico-sdk-unity-test/ThirdPartyPackages/UnityOpenXRPicoIntegrationSDK-1.4.0",
-      "depth": 0,
-      "source": "local",
-      "dependencies": {
-        "com.unity.xr.core-utils": "2.2.0",
-        "com.unity.xr.openxr": "1.8.2"
-      }
     },
     "com.unity.modules.ai": {
       "version": "1.0.0",

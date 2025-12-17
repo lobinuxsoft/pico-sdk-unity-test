@@ -18,7 +18,7 @@ MonoBehaviour:
   - com.unity.xr.arfoundation@5.2.0
   - com.unity.xr.openxr@1.14.3
   - com.unity.xr.meta-openxr@1.0.4
-  - com.meta.xr.sdk.core@77.0.0
-  - com.meta.xr.sdk.platform@77.0.0
+  - com.meta.xr.sdk.core@81.0.0
+  - com.meta.xr.sdk.platform@81.0.0
   packagesToRemove:
   - com.unity.xr.openxr.picoxr

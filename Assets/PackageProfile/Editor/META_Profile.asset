@@ -14,10 +14,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   profileName: META
   packagesToAdd:
-  - com.unity.xr.interaction.toolkit@2.6.5
-  - com.unity.xr.arfoundation@5.2.0
-  - com.unity.xr.openxr@1.14.3
-  - com.unity.xr.meta-openxr@1.0.4
+  - com.unity.xr.interaction.toolkit@3.2.2
+  - com.unity.xr.arfoundation@6.2.1
+  - com.unity.xr.openxr@1.16.1
+  - com.unity.xr.meta-openxr@2.3.0
   - com.meta.xr.sdk.core@81.0.0
   - com.meta.xr.sdk.platform@81.0.0
   packagesToRemove:
